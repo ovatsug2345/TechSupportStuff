@@ -1,5 +1,4 @@
-Add-Type -AssemblyName System.Windows.Forms
-
+###FUNCTIONS###
 
 # Ensure full (long) path
 function Get-LongPath {
@@ -37,6 +36,9 @@ function Safe-Delete {
 
 }
 
+
+
+###ADMIN CHECK###
 # Check if the script is running as Administrator
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -56,11 +58,13 @@ if ($args.Count -gt 0) {
 }
 
 
+###WINDOW###
+Add-Type -AssemblyName System.Windows.Forms
 # Create the form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Select Options"
 $form.Width = 300
-$form.Height = 350
+$form.Height = 400
 $form.StartPosition = "CenterScreen"
 
 # Create checkboxes
@@ -104,6 +108,11 @@ $checkbox8.Text = "Install Adobe Reader"
 $checkbox8.AutoSize = $true
 $checkbox8.Location = New-Object System.Drawing.Point(30,180)
 
+$checkbox9 = New-Object System.Windows.Forms.CheckBox
+$checkbox9.Text = "Install Kaspersky"
+$checkbox9.AutoSize = $true
+$checkbox9.Location = New-Object System.Drawing.Point(30,270)
+
 
 
 
@@ -111,7 +120,7 @@ $checkbox8.Location = New-Object System.Drawing.Point(30,180)
 # Create OK button
 $okButton = New-Object System.Windows.Forms.Button
 $okButton.Text = "OK"
-$okButton.Location = New-Object System.Drawing.Point(30,270)
+$okButton.Location = New-Object System.Drawing.Point(30,300)
 $okButton.Add_Click({
     $form.Close()
 })
@@ -128,6 +137,7 @@ $form.Controls.Add($checkbox5)
 $form.Controls.Add($checkbox6)
 $form.Controls.Add($checkbox7)
 $form.Controls.Add($checkbox8)
+$form.Controls.Add($checkbox9)
 $form.Controls.Add($okButton)
 
 # Show the form
@@ -162,7 +172,7 @@ Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip
 Start-Process -FilePath $tempZip -ArgumentList "/S" -Wait
 
 $longTempPath = Get-LongPath $tempZip
-Safe-Delete -Path $longTempPath -Force
+Safe-Delete -Path $longTempPath
 
 }
 
@@ -182,7 +192,7 @@ Invoke-WebRequest -Uri $anydeskUrl -OutFile $tempExe
 
 Start-Process -FilePath $tempExe -ArgumentList "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --create-desktop-icon --silent" -Wait
 
-Safe-Delete -Path $tempExe -Force
+Safe-Delete -Path $tempExe
 
 }
 
@@ -207,7 +217,7 @@ for ($i = 0; $i -lt 60; $i++) {
   Start-Sleep -Seconds 2
   if (Test-Path $installExe) { break }
 }
-Safe-Delete -Path $tempExe -Force
+Safe-Delete -Path $tempExe
 
 }
  
@@ -227,7 +237,7 @@ Invoke-WebRequest -Uri $msiUrl -OutFile $tempMsi
 
 Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$tempMsi`" /qn /norestart" 
 
-Safe-Delete -Path $tempMsi -Force
+Safe-Delete -Path $tempMsi
 
 }
 
@@ -283,7 +293,7 @@ if (-not (Test-Path $targetExe)) {
 }
 
 # --- CLEANUP ---
-Safe-Delete -Path $tempDir -Recurse -Force
+Safe-Delete -Path $tempDir
 
 }
 
@@ -295,14 +305,23 @@ Safe-Delete -Path $tempDir -Recurse -Force
 
 if ($checkbox6.Checked -or $checkbox7.Checked)  {
     Write-Output "Starting Windows Debloater"
-    Expand-Archive -path .\Win11Debloat-master.zip -DestinationPath .\Debloat -force
-    if ($checkbox6.Checked) {
-    .\Debloat\Win11Debloat-master\Win11Debloat.ps1 -Silent -RunDefaults
+    $tempPath = Join-Path $env:TEMP "Win11Debloat.zip"
+    $extPath = Join-Path $env:TEMP "debloat"
+    $ps1Path = Join-Path $extPath "Win11Debloat-master\Win11Debloat.ps1"
+    Invoke-WebRequest -Uri "https://github.com/Raphire/Win11Debloat/archive/refs/heads/master.zip" -OutFile $tempPath
+
+    
+    Expand-Archive -path $tempPath -DestinationPath $extPath -force
+   
+ if ($checkbox7.Checked) {
+    $ps1Path
 	}
-    if ($checkbox7.Checked) {
-    .\Debloat\Win11Debloat-master\Win11Debloat.ps1
-	}
-    Safe-Delete -Path -Path ".\Debloat" -Recurse -Force
+
+    else {
+    Start-Process -FilePath $ps1Path -Silent -RunDefaults
+    }
+
+    Safe-Delete -Path -Path $extPath
 }
 
 
@@ -313,7 +332,7 @@ if ($checkbox6.Checked -or $checkbox7.Checked)  {
 
 if ($checkbox8.Checked) {
 # Download and silently install Adobe Reader DC
-$readerUrl = "https://get.adobe.com/reader/enterprise/"  # Choose correct exe link
+$readerUrl = "tautau.pt/downloadables/adobe.exe"  
 $tempReader = Join-Path $env:TEMP "AcroRdrDC.exe"
 
 Invoke-WebRequest -Uri $readerUrl -OutFile $tempReader
@@ -321,64 +340,19 @@ Invoke-WebRequest -Uri $readerUrl -OutFile $tempReader
 # Silent install flags: /sAll /rs /msi EULA_ACCEPT=YES
 Start-Process -FilePath $tempReader -ArgumentList "/sAll", "/rs", "/msi", "EULA_ACCEPT=YES" -Wait
 
-Safe-Delete -Path $tempReader -Force
-
-}
-###################################################
-pause
-
-if ($checkbox3.Checked -or $checkbox4.Checked)  {
-Write-Output "Press any key to add shortcuts to taskbar. Quit otherwise."
-
-#################################################
-
-
-
-
-# --- Config: Add shortcut names here ---
-$shortcutNames = @(
-    "Google Chrome.lnk",
-    "Firefox.lnk"
-)
-
-
-
-
-
-
-
-
-$desktopPath = [Environment]::GetFolderPath('Desktop')
-
-# Localized 'Pin to taskbar' verbs for English and Portuguese
-$pinVerbs = @(
-    'Pin to Tas&kbar',             # English
-    'Fixar na barra de tare&fas'   # Portuguese (Brazil / Portugal)
-)
-
-# Create Shell COM object once
-$shell = New-Object -ComObject Shell.Application
-
-foreach ($shortcutName in $shortcutNames) {
-    $shortcutPath = Join-Path $desktopPath $shortcutName
-
-    # Skip if shortcut doesn't exist
-    if (-not (Test-Path $shortcutPath)) {
-        continue
-    }
-
-    $folder = $shell.Namespace($desktopPath)
-    $item = $folder.ParseName($shortcutName)
-
-    foreach ($verbName in $pinVerbs) {
-        $verb = $item.Verbs() | Where-Object { $_.Name -eq $verbName }
-        if ($verb) {
-            $verb.DoIt()
-            Write-Host "Pinned '$shortcutName' to taskbar using verb '$verbName'."
-            break
-        }
-    }
+Safe-Delete -Path $tempReader
 }
 
-pause
+if ($checkbox9.Checked) {
+# Download and silently install Adobe Reader DC
+$kasperUrl = "tautau.pt/downloadables/kaspersky.exe"  
+$tempKasper = Join-Path $env:TEMP "free-antivirus-download.exe"
+
+Invoke-WebRequest -Uri $KasperUrl -OutFile $tempKasper
+
+
+Start-Process -FilePath $tempKasper -Wait
+
+Safe-Delete -Path $tempKasper
+
 }
