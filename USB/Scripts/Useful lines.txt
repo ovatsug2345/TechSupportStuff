@@ -1,0 +1,2 @@
+cd into Ventoy usb
+For /F "Delims=\ " %G In ('"%__AppDir__%mountvol.exe 2>NUL|%__AppDir__%find.exe ":\""') Do @Vol %G 2>NUL|%__AppDir__%find.exe /I "Ventoy">NUL&&CD /D %G
